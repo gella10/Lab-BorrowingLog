@@ -2,19 +2,22 @@ import { useState, useEffect } from 'react';
 
 function App() {
   const [items, setItems] = useState([]);
+  
+  // New State Fields for Enhanced Features
   const [itemName, setItemName] = useState('');
+  const [category, setCategory] = useState('Electronics');
   const [borrowerName, setBorrowerName] = useState('');
+  const [courseSection, setCourseSection] = useState('');
   const [dateBorrowed, setDateBorrowed] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [remarks, setRemarks] = useState('');
 
-  // Active Tab State
+  // Active Tab State (Modern Pill Navigation)
   const [activeTab, setActiveTab] = useState('records');
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-
-  // 🚨 Custom Confirmation Modal State
-  const [deletingId, setDeletingId] = useState(null);
 
   const API_URL = 'http://localhost:5000/api/equipment';
 
@@ -33,24 +36,36 @@ function App() {
     fetchItems();
   }, []);
 
-  // Handle Form Submission (Add Log)
+  // Handle Form Submission (Add Log with new fields)
   const handleAddLog = async (e) => {
     e.preventDefault();
-    if (!itemName || !borrowerName || !dateBorrowed) return;
+    if (!itemName || !borrowerName || !dateBorrowed || !dueDate) return;
 
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, borrowerName, dateBorrowed })
+        body: JSON.stringify({ 
+          itemName, 
+          category, 
+          borrowerName, 
+          courseSection, 
+          dateBorrowed, 
+          dueDate,
+          remarks: remarks || 'Good condition'
+        })
       });
 
       if (response.ok) {
         setItemName('');
+        setCategory('Electronics');
         setBorrowerName('');
+        setCourseSection('');
         setDateBorrowed('');
+        setDueDate('');
+        setRemarks('');
         fetchItems();
-        setActiveTab('records');
+        setActiveTab('records'); 
       }
     } catch (error) {
       console.error('Error adding record:', error);
@@ -72,35 +87,36 @@ function App() {
     }
   };
 
-  // Trigger Modal
-  const confirmDelete = (id) => {
-    setDeletingId(id);
+  // Delete Entry
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this borrowing record from the official log?")) {
+      try {
+        const response = await fetch(`${API_URL}/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          fetchItems();
+        }
+      } catch (error) {
+        console.error('Error deleting record:', error);
+      }
+    }
   };
 
-  // Execute Delete from Modal
-  const handleExecuteDelete = async () => {
-    if (!deletingId) return;
-
-    try {
-      const response = await fetch(`${API_URL}/${deletingId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        fetchItems();
-      }
-    } catch (error) {
-      console.error('Error deleting record:', error);
-    } finally {
-      setDeletingId(null); // Close modal
-    }
+  // Helper function to check if an active loan is overdue
+  const isOverdue = (dueDateStr, status) => {
+    if (status === 'Returned') return false;
+    const today = new Date().toISOString().split('T')[0];
+    return dueDateStr < today;
   };
 
   // Filter and Search Logic
   const filteredItems = items.filter((item) => {
     const matchesSearch = 
       item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.borrowerName.toLowerCase().includes(searchQuery.toLowerCase());
+      item.borrowerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.courseSection && item.courseSection.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesStatus = 
       statusFilter === 'All' ? true : item.status === statusFilter;
@@ -111,6 +127,7 @@ function App() {
   // Summary Metrics Calculations
   const totalCount = items.length;
   const activeLoansCount = items.filter(item => item.status === 'Borrowed').length;
+  const overdueCount = items.filter(item => isOverdue(item.dueDate, item.status)).length;
   const returnedCount = items.filter(item => item.status === 'Returned').length;
 
   return (
@@ -132,7 +149,7 @@ function App() {
         marginBottom: '24px'
       }}>
         <div style={{
-          maxWidth: '1050px',
+          maxWidth: '1150px',
           margin: '0 auto',
           padding: '16px 24px',
           display: 'flex',
@@ -182,9 +199,9 @@ function App() {
       </header>
 
       {/* 📄 Main Content Container */}
-      <main style={{ maxWidth: '1050px', margin: '0 auto', padding: '0 24px' }}>
+      <main style={{ maxWidth: '1150px', margin: '0 auto', padding: '0 24px' }}>
 
-        {/* 🌟 Navigation Switcher */}
+        {/* 🌟 Modern Pill-Style Navigation Switcher */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -256,30 +273,36 @@ function App() {
             {/* Metrics Row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: '16px',
               marginBottom: '28px'
             }}>
               <div style={schoolMetricCard}>
-                <span style={metricLabel}>Total Equipment Logs</span>
+                <span style={metricLabel}>Total Logs</span>
                 <span style={{ fontSize: '2rem', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>{totalCount}</span>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Cumulative total in database</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Cumulative total</span>
               </div>
 
               <div style={{ ...schoolMetricCard, borderTop: '4px solid #d97706' }}>
-                <span style={{ ...metricLabel, color: '#b45309' }}>Currently Borrowed</span>
+                <span style={{ ...metricLabel, color: '#b45309' }}>Active Loans</span>
                 <span style={{ fontSize: '2rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>{activeLoansCount}</span>
-                <span style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '2px' }}>Items currently in use</span>
+                <span style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '2px' }}>Items checked out</span>
+              </div>
+
+              <div style={{ ...schoolMetricCard, borderTop: '4px solid #dc2626' }}>
+                <span style={{ ...metricLabel, color: '#991b1b' }}>Overdue Items</span>
+                <span style={{ fontSize: '2rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>{overdueCount}</span>
+                <span style={{ fontSize: '0.75rem', color: '#991b1b', marginTop: '2px' }}>Past return deadline</span>
               </div>
 
               <div style={{ ...schoolMetricCard, borderTop: '4px solid #059669' }}>
-                <span style={{ ...metricLabel, color: '#047857' }}>Successfully Returned</span>
+                <span style={{ ...metricLabel, color: '#047857' }}>Returned</span>
                 <span style={{ fontSize: '2rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>{returnedCount}</span>
-                <span style={{ fontSize: '0.75rem', color: '#047857', marginTop: '2px' }}>Cleared and checked back in</span>
+                <span style={{ fontSize: '0.75rem', color: '#047857', marginTop: '2px' }}>Checked back in</span>
               </div>
             </div>
 
-            {/* Table Section */}
+            {/* Table & Controls Section */}
             <div style={portalCardStyle}>
               <div style={{
                 display: 'flex',
@@ -296,7 +319,7 @@ function App() {
                     Official Borrowing Ledger
                   </h2>
                   <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                    Real-time tracking of lab apparatus, meters, and equipment
+                    Real-time tracking of lab apparatus, category tags, and due dates
                   </p>
                 </div>
 
@@ -320,7 +343,7 @@ function App() {
                 </button>
               </div>
 
-              {/* Filters */}
+              {/* Filters Bar */}
               <div style={{
                 display: 'flex',
                 gap: '12px',
@@ -337,7 +360,7 @@ function App() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Search by student/staff name or equipment..."
+                    placeholder="Search equipment, borrower, or section..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={schoolInputStyle}
@@ -360,16 +383,16 @@ function App() {
                 </div>
               </div>
 
-              {/* Table */}
+              {/* Official Table View */}
               <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                      <th style={schoolThStyle}>EQUIPMENT / ITEM</th>
-                      <th style={schoolThStyle}>BORROWER NAME</th>
-                      <th style={schoolThStyle}>DATE ISSUED</th>
-                      <th style={schoolThStyle}>LOAN STATUS</th>
-                      <th style={{ ...schoolThStyle, textAlign: 'center' }}>MANAGEMENT ACTIONS</th>
+                      <th style={schoolThStyle}>EQUIPMENT / CATEGORY</th>
+                      <th style={schoolThStyle}>BORROWER & SECTION</th>
+                      <th style={schoolThStyle}>DATES (ISSUED / DUE)</th>
+                      <th style={schoolThStyle}>STATUS & REMARKS</th>
+                      <th style={{ ...schoolThStyle, textAlign: 'center' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -381,78 +404,90 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      filteredItems.map((item, index) => (
-                        <tr
-                          key={item.id}
-                          style={{
-                            borderBottom: '1px solid #e2e8f0',
-                            backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa'
-                          }}
-                        >
-                          <td style={{ ...schoolTdStyle, fontWeight: '700', color: '#0f172a' }}>
-                            {item.itemName}
-                          </td>
-                          <td style={schoolTdStyle}>{item.borrowerName}</td>
-                          <td style={schoolTdStyle}>{item.dateBorrowed}</td>
-                          <td style={schoolTdStyle}>
-                            <span style={{
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: '800',
-                              letterSpacing: '0.03em',
-                              display: 'inline-block',
-                              backgroundColor: item.status === 'Returned' ? '#dcfce7' : '#fef3c7',
-                              color: item.status === 'Returned' ? '#14532d' : '#78350f',
-                              border: `1px solid ${item.status === 'Returned' ? '#86efac' : '#fde68a'}`
-                            }}>
-                              {item.status === 'Returned' ? '✓ RETURNED' : '⏳ BORROWED'}
-                            </span>
-                          </td>
-                          <td style={{ ...schoolTdStyle, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
-                              {item.status === 'Borrowed' && (
+                      filteredItems.map((item, index) => {
+                        const itemOverdue = isOverdue(item.dueDate, item.status);
+                        return (
+                          <tr
+                            key={item.id}
+                            style={{
+                              borderBottom: '1px solid #e2e8f0',
+                              backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa'
+                            }}
+                          >
+                            <td style={schoolTdStyle}>
+                              <div style={{ fontWeight: '700', color: '#0f172a' }}>{item.itemName}</div>
+                              <span style={{ fontSize: '0.72rem', backgroundColor: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontWeight: '600', color: '#475569' }}>
+                                {item.category || 'General'}
+                              </span>
+                            </td>
+
+                            <td style={schoolTdStyle}>
+                              <div style={{ fontWeight: '600' }}>{item.borrowerName}</div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.courseSection || 'N/A'}</span>
+                            </td>
+
+                            <td style={schoolTdStyle}>
+                              <div style={{ fontSize: '0.82rem' }}>Issued: {item.dateBorrowed}</div>
+                              <div style={{ fontSize: '0.82rem', fontWeight: itemOverdue ? '700' : 'normal', color: itemOverdue ? '#dc2626' : '#64748b' }}>
+                                Due: {item.dueDate || 'N/A'}
+                              </div>
+                            </td>
+
+                            <td style={schoolTdStyle}>
+                              <div style={{ marginBottom: '4px' }}>
+                                {item.status === 'Returned' ? (
+                                  <span style={returnedBadge}>✓ RETURNED</span>
+                                ) : itemOverdue ? (
+                                  <span style={overdueBadge}>⚠ OVERDUE</span>
+                                ) : (
+                                  <span style={borrowedBadge}>⏳ BORROWED</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                                "{item.remarks || 'Standard condition'}"
+                              </div>
+                            </td>
+
+                            <td style={{ ...schoolTdStyle, textAlign: 'center' }}>
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
+                                {item.status === 'Borrowed' && (
+                                  <button
+                                    onClick={() => handleReturn(item.id)}
+                                    style={{
+                                      backgroundColor: '#059669',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '6px 10px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '700',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Return
+                                  </button>
+                                )}
+                                
                                 <button
-                                  onClick={() => handleReturn(item.id)}
+                                  onClick={() => handleDelete(item.id)}
                                   style={{
-                                    backgroundColor: '#059669',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    padding: '6px 12px',
+                                    backgroundColor: '#fff1f2',
+                                    color: '#be123c',
+                                    border: '1px solid #fecdd3',
+                                    padding: '6px 10px',
                                     borderRadius: '4px',
-                                    fontSize: '0.78rem',
+                                    fontSize: '0.75rem',
                                     fontWeight: '700',
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  Mark as Returned
+                                  Delete
                                 </button>
-                              )}
-                              
-                              <button
-                                onClick={() => confirmDelete(item.id)}
-                                style={{
-                                  backgroundColor: '#fff1f2',
-                                  color: '#be123c',
-                                  border: '1.5px solid #fecdd3',
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.78rem',
-                                  fontWeight: '700',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                  transition: 'all 0.2s ease'
-                                }}
-                              >
-                                <span>🗑️</span> Remove Log
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -461,55 +496,106 @@ function App() {
           </div>
         )}
 
-        {/* 📝 TAB 2: REGISTRATION FORM */}
+        {/* 📝 TAB 2: NEW BORROWING REGISTRATION FORM */}
         {activeTab === 'new' && (
-          <div style={{ maxWidth: '650px', margin: '0 auto' }}>
+          <div style={{ maxWidth: '700px', margin: '0 auto' }}>
             <div style={portalCardStyle}>
               <div style={{ borderBottom: '2px solid #ecfdf5', paddingBottom: '12px', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#065f46', margin: 0 }}>
                   Equipment Requisition Form
                 </h2>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                  Please enter complete details to generate a digital loan slip.
+                  Complete all required fields including category and due date deadline.
                 </p>
               </div>
 
-              <form onSubmit={handleAddLog} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                <div>
-                  <label style={formLabel}>Equipment Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Digital Oscilloscope 100MHz"
-                    value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
-                    style={schoolInputStyle}
-                    required
-                  />
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
-                    Specify exact name or asset label tag on equipment.
-                  </span>
+              <form onSubmit={handleAddLog} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={formLabel}>Equipment / Apparatus Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Digital Oscilloscope"
+                      value={itemName}
+                      onChange={(e) => setItemName(e.target.value)}
+                      style={schoolInputStyle}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={formLabel}>Equipment Category *</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      style={schoolInputStyle}
+                    >
+                      <option value="Electronics">Electronics & Hardware</option>
+                      <option value="Measuring Tools">Measuring Tools</option>
+                      <option value="Glassware">Glassware & Chemistry</option>
+                      <option value="IT Equipment">IT Equipment & Peripherals</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={formLabel}>Borrower's Full Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Juan A. Dela Cruz"
+                      value={borrowerName}
+                      onChange={(e) => setBorrowerName(e.target.value)}
+                      style={schoolInputStyle}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={formLabel}>Course & Section *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., BSIT 3-A"
+                      value={courseSection}
+                      onChange={(e) => setCourseSection(e.target.value)}
+                      style={schoolInputStyle}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={formLabel}>Date Borrowed *</label>
+                    <input
+                      type="date"
+                      value={dateBorrowed}
+                      onChange={(e) => setDateBorrowed(e.target.value)}
+                      style={schoolInputStyle}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={formLabel}>Expected Due Date *</label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      style={schoolInputStyle}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label style={formLabel}>Borrower's Full Name (Student / Faculty) *</label>
+                  <label style={formLabel}>Condition Remarks / Notes</label>
                   <input
                     type="text"
-                    placeholder="e.g., Juan A. Dela Cruz"
-                    value={borrowerName}
-                    onChange={(e) => setBorrowerName(e.target.value)}
+                    placeholder="e.g., Brand new, complete cables included"
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
                     style={schoolInputStyle}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={formLabel}>Date Borrowed *</label>
-                  <input
-                    type="date"
-                    value={dateBorrowed}
-                    onChange={(e) => setDateBorrowed(e.target.value)}
-                    style={schoolInputStyle}
-                    required
                   />
                 </div>
 
@@ -556,101 +642,11 @@ function App() {
         )}
 
       </main>
-
-      {/* ⚠️ CUSTOM MODAL CONFIRMATION DIALOG */}
-      {deletingId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            maxWidth: '440px',
-            width: '100%',
-            padding: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e2e8f0',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '52px',
-              height: '52px',
-              backgroundColor: '#fee2e2',
-              color: '#dc2626',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.5rem',
-              margin: '0 auto 16px auto'
-            }}>
-              ⚠️
-            </div>
-
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: '800', color: '#0f172a' }}>
-              Confirm Record Deletion
-            </h3>
-
-            <p style={{ margin: '0 0 24px 0', fontSize: '0.88rem', color: '#64748b', lineHeight: '1.5' }}>
-              Are you sure you want to delete this borrowing record from the official log? This action cannot be undone.
-            </p>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setDeletingId(null)}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  border: '1.5px solid #cbd5e1',
-                  borderRadius: '6px',
-                  fontSize: '0.88rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleExecuteDelete}
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.88rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
-                }}
-              >
-                Yes, Delete Record
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
 
-// Styling Constants
+// 🎨 Institutional School Styling System & Badges
 const portalCardStyle = {
   backgroundColor: '#ffffff',
   border: '1px solid #cbd5e1',
@@ -664,14 +660,14 @@ const schoolMetricCard = {
   border: '1px solid #cbd5e1',
   borderTop: '4px solid #065f46',
   borderRadius: '8px',
-  padding: '18px 20px',
+  padding: '16px 18px',
   display: 'flex',
   flexDirection: 'column',
   boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
 };
 
 const metricLabel = {
-  fontSize: '0.75rem',
+  fontSize: '0.72rem',
   fontWeight: '800',
   color: '#475569',
   textTransform: 'uppercase',
@@ -680,10 +676,10 @@ const metricLabel = {
 
 const formLabel = {
   display: 'block',
-  fontSize: '0.85rem',
+  fontSize: '0.82rem',
   fontWeight: '700',
   color: '#1e293b',
-  marginBottom: '6px'
+  marginBottom: '4px'
 };
 
 const schoolInputStyle = {
@@ -699,17 +695,50 @@ const schoolInputStyle = {
 };
 
 const schoolThStyle = {
-  padding: '12px 16px',
-  fontSize: '0.75rem',
+  padding: '12px 14px',
+  fontSize: '0.72rem',
   fontWeight: '800',
   color: '#334155',
   letterSpacing: '0.05em'
 };
 
 const schoolTdStyle = {
-  padding: '14px 16px',
-  fontSize: '0.88rem',
+  padding: '12px 14px',
+  fontSize: '0.85rem',
   color: '#334155'
+};
+
+const returnedBadge = {
+  padding: '3px 8px',
+  borderRadius: '4px',
+  fontSize: '0.72rem',
+  fontWeight: '800',
+  backgroundColor: '#dcfce7',
+  color: '#14532d',
+  border: '1px solid #86efac',
+  display: 'inline-block'
+};
+
+const borrowedBadge = {
+  padding: '3px 8px',
+  borderRadius: '4px',
+  fontSize: '0.72rem',
+  fontWeight: '800',
+  backgroundColor: '#fef3c7',
+  color: '#78350f',
+  border: '1px solid #fde68a',
+  display: 'inline-block'
+};
+
+const overdueBadge = {
+  padding: '3px 8px',
+  borderRadius: '4px',
+  fontSize: '0.72rem',
+  fontWeight: '800',
+  backgroundColor: '#fee2e2',
+  color: '#991b1b',
+  border: '1px solid #fca5a5',
+  display: 'inline-block'
 };
 
 export default App;
